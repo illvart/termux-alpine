@@ -1,0 +1,565 @@
+#!/data/data/com.termux/files/usr/bin/bash
+##
+## Copyright (c) 2020 illvart
+## https://github.com/illvart/termux-alpine
+##
+## Credit to `Hax4us` `Termux` for source
+##
+
+set -Eeuo pipefail
+source "utils.sh"
+
+trap 'TRAP_ERR $? $LINENO $BASH_LINENO "$BASH_COMMAND" `printf "::%s" ${FUNCNAME[@]:-}`' ERR
+trap TRAP_EXIT EXIT
+trap "TRAP_SIGNAL $? $LINENO" HUP INT TERM
+
+PROGRAM_NAME="$0"
+PROGRAM_VERSION="1.0.0"
+
+## Executable distro name
+EXEC_NAME="termux-alpine"
+## Location of extracted rootfs
+ROOTFS_DIR=${HOME}/alpine
+## Location of binary files
+TERMUX_BIN=${PREFIX}/bin
+## Running at distro
+LAUNCH_DISTRO=${TERMUX_BIN}/${EXEC_NAME}
+## Distro url mirror
+MIRROR_URL="http://dl-cdn.alpinelinux.org"
+## Mirror url pathname
+MIRROR_PATHNAME="${MIRROR_URL}/alpine/latest-stable/releases"
+## Colorize distro name
+DISTRO_NAME="${BLUE}Alpine Linux${RST}"
+
+## Checking the architecture for URL paths
+function check_architecture() {
+    task "Checking the architecture"
+    case `dpkg --print-architecture` in
+        aarch64) ARCH=aarch64 ;;
+        arm) ARCH=armhf ;;
+        amd64) ARCH=x86_64 ;;
+        x86_64) ARCH=x86_64 ;;
+        i*86) ARCH=x86 ;;
+        x86) ARCH=x86 ;;
+        *) die "Unknown architecture" ;;
+    esac
+    task "The architecture is $GREEN${ARCH}$RST"
+}
+## Checking the required tools
+function check_required_tools() {
+    task "Checking the required tools"
+    for tools in curl proot tar; do
+        if [ -f ${PREFIX}/bin/$tools ]; then
+            echo -e " • ${BLUE}${tools}${RST} is ${GREEN}OK${RST}"
+        else
+            task "Installing ${BLUE}${tools}${RST}"
+            pkg install -y $tools || die "Check your internet connection."
+        fi
+    done
+}
+
+function set_distro_url() {
+    DISTRO_VERSION=`curl --silent ${MIRROR_PATHNAME}/${ARCH}/latest-releases.yaml | grep --max-count=1 --only-matching version.* | sed -e "s/[^0-9.]*//g" -e "s/-$//"`
+    [ -z "$DISTRO_VERSION" ] && exit 1
+    task "Found the latest version of $DISTRO_NAME $GREEN${DISTRO_VERSION}$RST"
+    DISTRO_URL="${MIRROR_PATHNAME}/${ARCH}/alpine-minirootfs-${DISTRO_VERSION}-${ARCH}.tar.gz"
+}
+function get_rootfs() {
+    task "Getting the rootfs file..."
+    set_distro_url
+    curl_safety "$DISTRO_URL"
+    ROOTFS="alpine-minirootfs-${DISTRO_VERSION}-${ARCH}.tar.gz"
+}
+function get_sha_rootfs() {
+    task "Getting SHA for the rootfs file..."
+    curl_safety "${DISTRO_URL}.sha256"
+}
+function check_integrity_rootfs() {
+    task "Checking integrity of the rootfs file..."
+    echo -en "$GREEN"
+    sha256sum --check ${ROOTFS}.sha256 || die "Downloaded the rootfs file was corrupted or half downloaded, but don't worry, just run again"
+}
+function decompress_rootfs() {
+    task "Decompress the rootfs file, please be patient"
+    proot --kill-on-exit --link2symlink tar --warning=no-unknown-keyword --delay-directory-restore --preserve-permissions -zxf "$ROOTFS" --exclude="dev"||:
+    sleep 1s
+    rm -f $ROOTFS ${ROOTFS}.sha256
+    unset -v DISTRO_VERSION DISTRO_URL ROOTFS ARCH
+    unset -f set_distro_url
+}
+
+## Creating the launch script
+function create_launch_script() {
+    task "Creating the launch script at ${GREEN}${LAUNCH_DISTRO}${RST}"
+
+    local fake_kernel="" fake_proc=""
+    if [ "$*" ]; then
+        ## Fix old kernels by reporting a fake up-to-date kernel version
+        fake_kernel="command+=\" --kernel-release=5.4.0-fake-kernel\""
+        ## Fake /proc/stat and /proc/version
+        fake_proc="command+=\" --bind=${ROOTFS_DIR}/proc/.stat:/proc/stat\" command+=\" --bind=${ROOTFS_DIR}/proc/.version:/proc/version\""
+    fi
+
+    ## Add timezone if available
+    local TZ=""; [ ! -z "$timezone" ] && TZ="command+=\" TZ=$timezone\""
+
+    cat <<- EOF > "$LAUNCH_DISTRO"
+	#!/data/data/com.termux/files/usr/bin/bash
+	unset LD_PRELOAD
+	command="proot"
+	$fake_kernel
+	command+=" --kill-on-exit"
+	command+=" --link2symlink"
+	command+=" --rootfs=${ROOTFS_DIR}"
+	command+=" --root-id"
+	command+=" --cwd=/root"
+	command+=" --bind=/dev"
+	command+=" --bind=/dev/urandom:/dev/random"
+	command+=" --bind=/proc"
+	command+=" --bind=/sys"
+	command+=" --bind=${ROOTFS_DIR}/root:/dev/shm"
+	$fake_proc
+	[ ! -d "${ROOTFS_DIR}/tmp" ] && mkdir "${ROOTFS_DIR}/tmp"
+	command+=" --bind=${ROOTFS_DIR}/tmp:/dev/shm"
+	# Bind /data/data/com.termux to /
+	command+=" --bind=/data/data/com.termux"
+	# Bind /storage to /
+	command+=" --bind=/storage"
+	# Bind /sdcard to /
+	command+=" --bind=/storage/self/primary:/sdcard"
+	command+=" /usr/bin/env -i"
+	command+=" HOME=/root"
+	command+=" LANG=C.UTF-8"
+	$TZ
+	command+=" PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	command+=" TERM=\${TERM-xterm-256color}"
+	command+=" TMPDIR=/tmp"
+	command+=" SHELL=/bin/sh"
+	command+=" /bin/sh --login"
+
+	com="\$@"; [ -z "\$1" ] && exec \$command || \$command -c "\$com"
+	EOF
+
+    task "Making ${GREEN}${EXEC_NAME}${RST} executable"
+    chmod +x $LAUNCH_DISTRO
+    task "Fixing shebang of ${GREEN}${EXEC_NAME}${RST}"
+    termux-fix-shebang $LAUNCH_DISTRO
+}
+
+## Creating a fake /proc/stat file
+function create_proc_stat() {
+    task "Creating a fake /proc/stat file"
+
+    chmod 700 "${ROOTFS_DIR}/proc" >/dev/null 2>&1
+    cat <<- EOF > "${ROOTFS_DIR}/proc/.stat"
+	cpu  1050008 127632 898432 43828767 37203 63 99244 0 0 0
+	cpu0 212383 20476 204704 8389202 7253 42 12597 0 0 0
+	cpu1 224452 24947 215570 8372502 8135 4 42768 0 0 0
+	cpu2 222993 17440 200925 8424262 8069 9 17732 0 0 0
+	cpu3 186835 8775 195974 8486330 5746 3 8360 0 0 0
+	cpu4 107075 32886 48854 8688521 3995 4 5758 0 0 0
+	cpu5 90733 20914 27798 1429573 2984 1 11419 0 0 0
+	intr 53261351 0 686 1 0 0 1 12 31 1 20 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 7818 0 0 0 0 0 0 0 0 255 33 1912 33 0 0 0 0 0 0 3449534 2315885 2150546 2399277 696281 339300 22642 19371 0 0 0 0 0 0 0 0 0 0 0 2199 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2445 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 162240 14293 2858 0 151709 151592 0 0 0 284534 0 0 0 0 0 0 0 0 0 0 0 0 0 0 185353 0 0 938962 0 0 0 0 736100 0 0 1 1209 27960 0 0 0 0 0 0 0 0 303 115968 452839 2 0 0 0 0 0 0 0 0 0 0 0 0 0 160361 8835 86413 1292 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3592 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6091 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 35667 0 0 156823 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 138 2667417 0 41 4008 952 16633 533480 0 0 0 0 0 0 262506 0 0 0 0 0 0 126 0 0 1558488 0 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 8 0 0 6 0 0 0 10 3 4 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 20 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12 1 1 83806 0 1 1 0 1 0 1 1 319686 2 8 0 0 0 0 0 0 0 0 0 244534 0 1 10 9 0 10 112 107 40 221 0 0 0 144
+	ctxt 90182396
+	btime 1595203295
+	processes 270853
+	procs_running 2
+	procs_blocked 0
+	softirq 25293348 2883 7658936 40779 539155 497187 2864 1908702 7229194 279723 7133925
+	EOF
+}
+## Creating a fake /proc/version file
+function create_proc_version() {
+    task "Creating a fake /proc/version file"
+
+    cat <<- EOF > "${ROOTFS_DIR}/proc/.version"
+	Linux version 5.4.0-fake-kernel (termux@fakehost) (gcc version 4.9.x 20150123 (prerelease) (GCC) ) #1 SMP PREEMPT Fri Jul 10 00:00:00 UTC 2020
+	EOF
+}
+
+## Creating /etc/resolv.conf file
+function create_resolv() {
+    task "Creating /etc/resolv.conf file"
+
+    local resolv="${ROOTFS_DIR}/etc/resolv.conf"
+    [ -f "$resolv" ] && cp -n ${resolv}{,.bak}
+    cat <<- EOF > "$resolv"
+	nameserver 1.1.1.1
+	nameserver 1.0.0.1
+	EOF
+}
+## Creating /etc/hosts file
+function create_hosts() {
+    task "Creating /etc/hosts file"
+
+    local hosts="${ROOTFS_DIR}/etc/hosts"
+    [ -f "$hosts" ] && cp -n ${hosts}{,.bak}
+    cat <<- EOF > "$hosts"
+	# IPv4.
+	127.0.0.1   localhost.localdomain localhost
+
+	# IPv6.
+	::1         localhost.localdomain localhost ipv6-localhost ipv6-loopback
+	fe00::0     ipv6-localnet
+	ff00::0     ipv6-mcastprefix
+	ff02::1     ipv6-allnodes
+	ff02::2     ipv6-allrouters
+	ff02::3     ipv6-allhosts
+	EOF
+}
+## Creating /etc/bash.bashrc file
+function create_bashrc() {
+    task "Creating /etc/bash.bashrc file"
+
+    local bashrc="${ROOTFS_DIR}/etc/bash.bashrc"
+    [ -f "$bashrc" ] && cp -n ${bashrc}{,.bak}
+    cat <<- EOF > "$bashrc"
+	# text editor
+	export VISUAL=nano
+	export EDITOR="\$VISUAL"
+
+	# enable shell options
+	shopt -s checkwinsize cdspell extglob
+
+	# some aliases
+	alias c='clear'
+	alias r='reset'
+	alias la='ls -A' # show hidden files
+	alias l.='ls -d .*' # show only hidden files
+	alias l='ls -lathF' # sort by newest
+	alias L='ls -latrhF' # sort by oldest
+	alias lc='ls -lcr' # sort by change time
+	alias lo='ls -laSFh' # sort by size largest
+	alias lt='ls -ltr' # sort by date
+
+	# alias definitions
+	[ -f ~/.bash_aliases ] && . ~/.bash_aliases
+
+	# bash-completion
+	[[ \$PS1 && -f /usr/share/bash-completion/bash_completion ]] && . /usr/share/bash-completion/bash_completion
+	EOF
+}
+## Creating /etc/profile file
+function create_profile() {
+    task "Creating /etc/profile file"
+
+    local profile="${ROOTFS_DIR}/etc/profile"
+    [ -f "$profile" ] && cp -n ${profile}{,.bak}
+
+    local TZ=""; [ ! -z "$timezone" ] && TZ="export TZ=$timezone"
+
+    cat <<- EOF > "$profile"
+	export LANG=C.UTF-8
+	$TZ
+	export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+	export TERM=${TERM-xterm-256color}
+	export TMPDIR=/tmp
+	export PAGER=less
+	export PS1='[\u@\h \w]\$(if [ \`id -u\` -eq 0 ]; then echo "#"; else echo "\$"; fi) '
+	umask 022
+
+	# Load profiles from /etc/profile.d
+	if [ -d /etc/profile.d ]; then
+	  for profile in /etc/profile.d/*.sh; do
+	    if [ -r \$profile ]; then
+	      . \$profile
+	    fi
+	  done
+	  unset profile
+	fi
+
+	# Source ~/.bashrc or /etc/bash.bashrc
+	if [ -n "\$BASH_VERSION" ]; then
+	  if [ -f "\$HOME/.bashrc" ]; then
+	    . "\$HOME/.bashrc"
+	  elif [ -f /etc/bash.bashrc ]; then
+	    . /etc/bash.bashrc
+	  fi
+	fi
+
+	# set PATH so it includes user's private bin if it exists
+	if [ -d "\$HOME/bin" ]; then
+	    PATH="\$HOME/bin:\$PATH"
+	fi
+	if [ -d "\$HOME/.local/bin" ]; then
+	    PATH="\$HOME/.local/bin:\$PATH"
+	fi
+	EOF
+}
+
+## Edge repositories
+function edge_repo() {
+    task "Change the repositories to edge"
+
+    local repo="${ROOTFS_DIR}/etc/apk/repositories"
+    [ -f "$repo" ] && cp -n ${repo}{,.bak}
+    cat <<- EOF > "$repo"
+	http://dl-cdn.alpinelinux.org/alpine/edge/main
+	http://dl-cdn.alpinelinux.org/alpine/edge/community
+	http://dl-cdn.alpinelinux.org/alpine/edge/testing
+	EOF
+}
+## Select and change the repositories
+function select_repo() { ask "Enable the edge (development) repositories?" && edge_repo||:; }
+## Updating and install some packages
+function update_at_distro() {
+    local fstab="${ROOTFS_DIR}/etc/fstab"
+    if [ -f "$fstab" ]; then
+        cp -n ${fstab}{,.bak}
+        echo "" > $fstab
+    fi
+
+    ## packages to install
+    local pkg="bash bash-completion sudo tzdata nano curl wget git openssh"
+
+    $LAUNCH_DISTRO "apk upgrade --no-progress --update-cache --no-cache"
+    $LAUNCH_DISTRO "apk add --no-progress --no-cache $pkg"
+
+    ## replace with bash
+    sed -i "s/ash/bash/g" ${ROOTFS_DIR}/etc/passwd
+    sed -i "s/bin\/sh/bin\/bash/g" $LAUNCH_DISTRO
+}
+
+## Installing nodejs-current, npm, and yarn
+function install_nodejs() {
+    task "Installing nodejs-current, npm, and yarn"
+
+    $LAUNCH_DISTRO "apk add --no-progress --no-cache nodejs-current npm yarn"
+}
+
+function username_prompt {
+    read -p "Username: " username
+    local re='^([a-z][a-z0-9_]{0,30})$'
+    if [[ "$username" =~ $re ]]; then
+        username="$username"
+    else
+        echo -e "\n${YELLOW}Username not allowed.${RST}"
+        username_prompt
+    fi
+}
+function password_prompt {
+    read -sp "Password: " pass1
+    echo
+    read -sp "Verify password: " pass2
+    if [[ "$pass1" == "$pass2" ]]; then
+        if [ -z "$pass1" ]; then
+            echo -e "\n\n${YELLOW}Password cannot be empty.${RST}"
+            password_prompt
+        else
+            password="$pass1"
+            echo
+        fi
+    else
+        echo -e "\n\n${YELLOW}Passwords do not match.${RST}"
+        password_prompt
+    fi
+}
+## Setup a non-root user
+function setup_user() {
+    task "Setup a non-root user"
+
+    username_prompt
+    $LAUNCH_DISTRO "addgroup -g 1000 $username"
+    $LAUNCH_DISTRO "adduser -u 1000 -G $username -s /bin/bash -D $username"
+    $LAUNCH_DISTRO "chown -R $username:$username /home/$username"
+
+    password_prompt
+    $LAUNCH_DISTRO "echo \"$username:$password\" | chpasswd -c SHA512 &>-"
+
+    if ask "User running sudo without a password?"
+    then
+        $LAUNCH_DISTRO "echo -ne \"$username ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/${username} && chmod 0440 /etc/sudoers.d/${username}"
+    else
+        $LAUNCH_DISTRO "echo -ne \"$username ALL=(ALL) ALL\" > /etc/sudoers.d/${username} && chmod 0440 /etc/sudoers.d/${username}"
+    fi
+    $LAUNCH_DISTRO "cp /etc/bash.bashrc /home/${username}/.bashrc && chown -R $username:$username /home/${username}/.bashrc"
+    unset -v username password
+    unset -f username_prompt password_prompt
+}
+
+## Set the timezone if available
+function set_timezone() {
+    #local TZ=`$LAUNCH_DISTRO "printenv TZ"`
+    [ ! -z "$timezone" ] && $LAUNCH_DISTRO "[ -e \"/usr/share/zoneinfo/$timezone\" ] && ln -snf /usr/share/zoneinfo/${timezone} /etc/localtime && echo -ne \"$timezone\" > /etc/timezone"
+}
+
+## Add a welcome message
+function add_welcome() {
+    task "Add a welcome message"
+
+    local motd="${ROOTFS_DIR}/etc/motd"
+    if [ -f "$motd" ]; then
+        cp -n ${motd}{,.bak}
+        echo "" > $motd
+    fi
+    cat <<- EOF > "${ROOTFS_DIR}/etc/profile.d/motd.sh"
+	echo -e "Welcome to Alpine!
+
+	Wiki:      https://wiki.alpinelinux.org
+	Community: https://alpinelinux.org/community
+
+	Working with packages:
+	* Search packages:   apk search <query>
+	* Install a package: apk add <package>
+	* Remove a package:  apk del <package>
+	* Update database:   apk update
+	* Upgrade packages:  apk upgrade
+
+	Use apk --help --verbose for a full command listing.
+
+	You may change this message by editing /etc/profile.d/motd.sh"
+	EOF
+}
+
+## Install the distro after presses enter
+function installing() {
+    echo -e "${BOLD}You're going to install ${DISTRO_NAME} ${PENGUIN} ${BOLD}in Termux${RST}"
+    echo
+    echo -en "${ITALIC}${YELLOW}Press ENTER to continue.${RST} "
+    read enter
+    mkdir -p $ROOTFS_DIR
+    cd $ROOTFS_DIR
+    echo
+    echo -e "Installing $DISTRO_NAME..."
+    echo -e "${GREEN}${ROOTFS_DIR}/${RST}"
+}
+## Install or reinstall the distro
+function evaluate() {
+    if is_dir_not_empty "$ROOTFS_DIR"; then
+        danger "$DISTRO_NAME ${PENGUIN} already installed in your Termux"
+        echo -e "${GREEN}${ROOTFS_DIR}/${RST} already exists!"
+        echo
+        if ask "Do you want to reinstall?"
+        then
+            rm -rf $ROOTFS_DIR
+            [ -f "$LAUNCH_DISTRO" ] && rm -f $LAUNCH_DISTRO
+            sleep 1s
+            echo
+            installing
+        else
+            exit 0
+        fi
+    else
+        installing
+    fi
+}
+## Full wipe the rootfs installation
+function uninstall() {
+    if is_dir_not_empty "$ROOTFS_DIR"; then
+        echo -e "${BOLD}You're going to uninstall ${DISTRO_NAME}!${RST}"
+        echo
+        if ask "Are you sure you want to uninstall?"
+        then
+            echo
+            echo -en "${ITALIC}${YELLOW}Press ENTER to continue.${RST} "
+            read enter
+            rm -rf $ROOTFS_DIR
+            [ -f "$LAUNCH_DISTRO" ] && rm -f $LAUNCH_DISTRO
+            sleep 1s
+            echo
+            die "Uninstalled!"
+        else
+            exit 0
+        fi
+    else
+        die "Not installed!"
+    fi
+}
+
+## Completed message after installation finished
+function completed()
+{
+    echo -e "${BOLD}${YAY} Installation finished!${RST}"
+    echo
+    echo -e "${ROCKET} Start $DISTRO_NAME with the command ${GREEN}${EXEC_NAME}${RST}"
+    echo
+    echo -e "Location: ${GREEN}${ROOTFS_DIR}/${RST}"
+    echo -e "Default shell: ${GREEN}/bin/bash${RST}"
+    echo
+    echo -e "Note:"
+    echo -e "Run ${GREEN}bash ${PROGRAM_NAME} --uninstall${RST} to uninstall!"
+    echo
+    echo -e "Made with ${COFFEE} by illvart"
+    echo "https://github.com/illvart/termux-alpine"
+}
+
+## Show help information
+function help()
+{
+    echo
+    echo -e "Usage: ${GREEN}bash ${PROGRAM_NAME}${RST} [options]"
+    echo
+    echo "Options:"
+    echo -e "--install-nodejs	install nodejs-current, npm, and yarn"
+    echo -e "-S, --setup-user	setup a non-root user"
+    echo -e "-F, --fake-kernel	use a fake kernel"
+    echo -e "-u, --uninstall		full wipe the rootfs installation"
+    echo -e "-v, --version		show this program version"
+    echo -e "-h, --help		show this help information"
+    echo
+}
+
+declare opt_other="" opt_help="" opt_version="" opt_uninstall="" opt_setup_user="" opt_fake_kernel="" opt_add_nodejs=""
+
+for opts in "$@"; do
+    case $opts in
+        -h|--help) opt_help=true; shift ;;
+        -v|--version) opt_version=true; shift ;;
+        -u|--uninstall) opt_uninstall=true; shift ;;
+        -S|--setup-user) opt_setup_user=true; shift ;;
+        -F|--fake-kernel) opt_fake_kernel=true; shift ;;
+        --install-nodejs) opt_add_nodejs=true; shift ;;
+        *) opt_other=("$1") ;;
+    esac
+done
+
+if [ "$opt_other" ]; then
+    echo
+    echo -e "${RED}Unknown options${RST} ${opt_other}"
+    echo
+    echo -e "Run ${GREEN}bash ${PROGRAM_NAME} --help${RST} to see available options."
+    echo
+    exit 1
+elif [ "$opt_help" ]; then
+    help
+    exit 0
+elif [ "$opt_version" ]; then
+    echo $PROGRAM_VERSION
+    exit 0
+elif [ "$opt_uninstall" ]; then
+    uninstall
+else
+    evaluate
+    divider
+    check_architecture
+    check_required_tools
+    get_rootfs
+    get_sha_rootfs
+    check_integrity_rootfs
+    (decompress_rootfs) & spinner "Decompressing..."
+    create_launch_script "$opt_fake_kernel"
+    divider
+    task "Login to $DISTRO_NAME and configuring..."
+    if [ "$opt_fake_kernel" ]; then
+        create_proc_stat
+        create_proc_version
+    fi
+    create_resolv
+    create_hosts
+    create_bashrc
+    create_profile
+    select_repo
+    task "Updating $DISTRO_NAME and install some packages..."
+    divider
+    update_at_distro
+    divider
+    [ "$opt_add_nodejs" ] && install_nodejs
+    [ "$opt_setup_user" ] && setup_user
+    set_timezone
+    add_welcome
+    divider
+    completed
+    divider
+fi
+
+exit 0
