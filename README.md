@@ -2,7 +2,11 @@
 
 > Bash script for installing **Alpine Linux** in **Termux**
 
-![Screenshot](./ss.png)
+<p align="center">
+  <img src="https://github.com/illvart/termux-alpine/blob/master/ss.png?raw=true" alt="Alpine Linux Termux"/>
+  <br>
+  <em>Check out the other screenshots on my <a href="https://www.instagram.com/p/CEr87gMHUOX/?igshid=15x831l2so1m8">Instagram</a>.</em>
+</p>
 
 ## Table of Contents
 
