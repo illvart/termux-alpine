@@ -14,7 +14,7 @@ trap TRAP_EXIT EXIT
 trap "TRAP_SIGNAL $? $LINENO" HUP INT TERM
 
 PROGRAM_NAME="$0"
-PROGRAM_VERSION="1.0.0"
+PROGRAM_VERSION="1.0.2"
 
 ## Executable distro name
 EXEC_NAME="termux-alpine"
@@ -311,9 +311,23 @@ function update_at_distro() {
 
     ## packages to install
     local pkg="bash bash-completion sudo tzdata nano curl wget git openssh"
+    local up="Update, upgrade system and installed packages"
+    local ins="Installing ($pkg)"
 
-    $LAUNCH_DISTRO "apk upgrade --no-progress --update-cache --no-cache"
-    $LAUNCH_DISTRO "apk add --no-progress --no-cache $pkg"
+    if ask "Disable progress bar for updating?"
+    then
+        task "$up"
+        $LAUNCH_DISTRO "apk -U upgrade --no-progress --no-cache"
+        task "$ins"
+        $LAUNCH_DISTRO "apk add --update --no-progress --no-cache $pkg"
+    else
+        task "$up"
+        $LAUNCH_DISTRO "apk -U upgrade --no-cache"
+        task "$ins"
+        $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
+    fi
+    task "Possible to repair installed packages"
+    $LAUNCH_DISTRO "apk fix -sv --no-cache"
 
     ## replace with bash
     sed -i "s/ash/bash/g" ${ROOTFS_DIR}/etc/passwd
@@ -425,6 +439,7 @@ function installing() {
 }
 ## Install or reinstall the distro
 function evaluate() {
+    echo -e "${BLUE}${EXEC_NAME} v${PROGRAM_VERSION}${RST}"
     if is_dir_not_empty "$ROOTFS_DIR"; then
         danger "$DISTRO_NAME ${PENGUIN} already installed in your Termux"
         echo -e "${GREEN}${ROOTFS_DIR}/${RST} already exists!"
@@ -445,6 +460,7 @@ function evaluate() {
 }
 ## Full wipe the rootfs installation
 function uninstall() {
+    echo -e "${BLUE}${EXEC_NAME} v${PROGRAM_VERSION}${RST}"
     if is_dir_not_empty "$ROOTFS_DIR"; then
         echo -e "${BOLD}You're going to uninstall ${DISTRO_NAME}!${RST}"
         echo
@@ -476,8 +492,9 @@ function completed()
     echo -e "Location: ${GREEN}${ROOTFS_DIR}/${RST}"
     echo -e "Default shell: ${GREEN}/bin/bash${RST}"
     echo
-    echo -e "Note:"
-    echo -e "Run ${GREEN}bash ${PROGRAM_NAME} --uninstall${RST} to uninstall!"
+    echo -e "Tips after installing:"
+    echo -e "${GREEN}bash ${PROGRAM_NAME} --uninstall${RST} to uninstall"
+    echo -e "${GREEN}bash ${PROGRAM_NAME} --help${RST} for more"
     echo
     echo -e "Made with ${COFFEE} by illvart"
     echo "https://github.com/illvart/termux-alpine"
@@ -536,7 +553,8 @@ else
     get_rootfs
     get_sha_rootfs
     check_integrity_rootfs
-    (decompress_rootfs) & spinner "Decompressing..."
+    #(decompress_rootfs) & spinner "Decompressing..."
+    decompress_rootfs
     create_launch_script "$opt_fake_kernel"
     divider
     task "Login to $DISTRO_NAME and configuring..."
