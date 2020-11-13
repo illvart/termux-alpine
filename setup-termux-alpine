@@ -32,77 +32,77 @@ trap "TRAP_SIGNAL $? $LINENO" HUP INT TERM
 
 ## Checking the architecture for URL paths
 function check_architecture() {
-  task "Checking the architecture"
-  case `dpkg --print-architecture` in
-    aarch64) ARCH=aarch64 ;;
-    arm) ARCH=armhf ;;
-    amd64) ARCH=x86_64 ;;
-    x86_64) ARCH=x86_64 ;;
-    i*86) ARCH=x86 ;;
-    x86) ARCH=x86 ;;
-    *) die "Unknown architecture" ;;
-  esac
-  task "The architecture is $GREEN${ARCH}$RST"
+    task "Checking the architecture"
+    case `dpkg --print-architecture` in
+        aarch64) ARCH=aarch64 ;;
+        arm) ARCH=armhf ;;
+        amd64) ARCH=x86_64 ;;
+        x86_64) ARCH=x86_64 ;;
+        i*86) ARCH=x86 ;;
+        x86) ARCH=x86 ;;
+        *) die "Unknown architecture" ;;
+    esac
+    task "The architecture is $GREEN${ARCH}$RST"
 }
 ## Checking the required tools
 function check_required_tools() {
-  task "Checking the required tools"
-  for tools in curl proot tar; do
-    if [ -f ${PREFIX}/bin/$tools ]; then
-      echo -e " • ${BLUE}${tools}${RST} is ${GREEN}OK${RST}"
-    else
-      task "Installing ${BLUE}${tools}${RST}"
-      pkg install -y $tools || die "Check your internet connection."
-    fi
-  done
+    task "Checking the required tools"
+    for tools in curl proot tar; do
+        if [ -f ${PREFIX}/bin/$tools ]; then
+            echo -e " • ${BLUE}${tools}${RST} is ${GREEN}OK${RST}"
+        else
+            task "Installing ${BLUE}${tools}${RST}"
+            pkg install -y $tools || die "Check your internet connection."
+        fi
+    done
 }
 
 function set_distro_url() {
-  DISTRO_VERSION=`curl --silent ${MIRROR_PATHNAME}/${ARCH}/latest-releases.yaml | grep --max-count=1 --only-matching version.* | sed -e "s/[^0-9.]*//g" -e "s/-$//"`
-  [ -z "$DISTRO_VERSION" ] && exit 1
-  task "Found the latest version of $DISTRO_NAME $GREEN${DISTRO_VERSION}$RST"
-  DISTRO_URL="${MIRROR_PATHNAME}/${ARCH}/alpine-minirootfs-${DISTRO_VERSION}-${ARCH}.tar.gz"
+    DISTRO_VERSION=`curl --silent ${MIRROR_PATHNAME}/${ARCH}/latest-releases.yaml | grep --max-count=1 --only-matching version.* | sed -e "s/[^0-9.]*//g" -e "s/-$//"`
+    [ -z "$DISTRO_VERSION" ] && exit 1
+    task "Found the latest version of $DISTRO_NAME $GREEN${DISTRO_VERSION}$RST"
+    DISTRO_URL="${MIRROR_PATHNAME}/${ARCH}/alpine-minirootfs-${DISTRO_VERSION}-${ARCH}.tar.gz"
 }
 function get_rootfs() {
-  task "Getting the rootfs file..."
-  set_distro_url
-  curl_safety "$DISTRO_URL"
-  ROOTFS="alpine-minirootfs-${DISTRO_VERSION}-${ARCH}.tar.gz"
+    task "Getting the rootfs file..."
+    set_distro_url
+    curl_safety "$DISTRO_URL"
+    ROOTFS="alpine-minirootfs-${DISTRO_VERSION}-${ARCH}.tar.gz"
 }
 function get_sha_rootfs() {
-  task "Getting SHA for the rootfs file..."
-  curl_safety "${DISTRO_URL}.sha256"
+    task "Getting SHA for the rootfs file..."
+    curl_safety "${DISTRO_URL}.sha256"
 }
 function check_integrity_rootfs() {
-  task "Checking integrity of the rootfs file..."
-  echo -en "$GREEN"
-  sha256sum --check ${ROOTFS}.sha256 || die "Downloaded the rootfs file was corrupted or half downloaded, but don't worry, just run again"
+    task "Checking integrity of the rootfs file..."
+    echo -en "$GREEN"
+    sha256sum --check ${ROOTFS}.sha256 || die "Downloaded the rootfs file was corrupted or half downloaded, but don't worry, just run again"
 }
 function decompress_rootfs() {
-  task "Decompress the rootfs file, please be patient..."
-  proot --kill-on-exit --link2symlink tar --warning=no-unknown-keyword --delay-directory-restore --preserve-permissions -zxf "$ROOTFS" --exclude="dev"||:
-  sleep 1s
-  rm -f $ROOTFS ${ROOTFS}.sha256
-  unset -v DISTRO_VERSION DISTRO_URL ROOTFS ARCH
-  unset -f set_distro_url
+    task "Decompress the rootfs file, please be patient..."
+    proot --kill-on-exit --link2symlink tar --warning=no-unknown-keyword --delay-directory-restore --preserve-permissions -zxf "$ROOTFS" --exclude="dev"||:
+    sleep 1s
+    rm -f $ROOTFS ${ROOTFS}.sha256
+    unset -v DISTRO_VERSION DISTRO_URL ROOTFS ARCH
+    unset -f set_distro_url
 }
 
 ## Creating the launch script
 function create_launch_script() {
-  task "Creating the launch script at ${GREEN}${LAUNCH_DISTRO}${RST}"
+    task "Creating the launch script at ${GREEN}${LAUNCH_DISTRO}${RST}"
 
-  local fake_kernel="" fake_proc=""
-  if [ "$*" ]; then
-    ## Fix old kernels by reporting a fake up-to-date kernel version
-    fake_kernel="command+=\" --kernel-release=5.4.0-fake-kernel\""
-    ## Fake /proc/stat and /proc/version
-    fake_proc="command+=\" --bind=${ROOTFS_DIR}/proc/.stat:/proc/stat\" command+=\" --bind=${ROOTFS_DIR}/proc/.version:/proc/version\""
-  fi
+    local fake_kernel="" fake_proc=""
+    if [ "$*" ]; then
+        ## Fix old kernels by reporting a fake up-to-date kernel version
+        fake_kernel="command+=\" --kernel-release=5.4.0-fake-kernel\""
+        ## Fake /proc/stat and /proc/version
+        fake_proc="command+=\" --bind=${ROOTFS_DIR}/proc/.stat:/proc/stat\" command+=\" --bind=${ROOTFS_DIR}/proc/.version:/proc/version\""
+    fi
 
-  ## Add timezone if available
-  local TZ=""; [ ! -z "$timezone" ] && TZ="command+=\" TZ=$timezone\""
+    ## Add timezone if available
+    local TZ=""; [ ! -z "$timezone" ] && TZ="command+=\" TZ=$timezone\""
 
-  cat <<- EOF > "$LAUNCH_DISTRO"
+    cat <<- EOF > "$LAUNCH_DISTRO"
 	#!/data/data/com.termux/files/usr/bin/bash
 	unset LD_PRELOAD
 	command="proot"
@@ -139,18 +139,18 @@ function create_launch_script() {
 	com="\$@"; [ -z "\$1" ] && exec \$command || \$command -c "\$com"
 	EOF
 
-  task "Making ${GREEN}${EXEC_NAME}${RST} executable"
-  chmod +x $LAUNCH_DISTRO
-  task "Fixing shebang of ${GREEN}${EXEC_NAME}${RST}"
-  termux-fix-shebang $LAUNCH_DISTRO
+    task "Making ${GREEN}${EXEC_NAME}${RST} executable"
+    chmod +x $LAUNCH_DISTRO
+    task "Fixing shebang of ${GREEN}${EXEC_NAME}${RST}"
+    termux-fix-shebang $LAUNCH_DISTRO
 }
 
 ## Creating a fake /proc/stat file
 function create_proc_stat() {
-  task "Creating a fake /proc/stat file"
+    task "Creating a fake /proc/stat file"
 
-  chmod 700 "${ROOTFS_DIR}/proc" >/dev/null 2>&1
-  cat <<- EOF > "${ROOTFS_DIR}/proc/.stat"
+    chmod 700 "${ROOTFS_DIR}/proc" >/dev/null 2>&1
+    cat <<- EOF > "${ROOTFS_DIR}/proc/.stat"
 	cpu  1050008 127632 898432 43828767 37203 63 99244 0 0 0
 	cpu0 212383 20476 204704 8389202 7253 42 12597 0 0 0
 	cpu1 224452 24947 215570 8372502 8135 4 42768 0 0 0
@@ -169,31 +169,31 @@ function create_proc_stat() {
 }
 ## Creating a fake /proc/version file
 function create_proc_version() {
-  task "Creating a fake /proc/version file"
+    task "Creating a fake /proc/version file"
 
-  cat <<- EOF > "${ROOTFS_DIR}/proc/.version"
+    cat <<- EOF > "${ROOTFS_DIR}/proc/.version"
 	Linux version 5.4.0-fake-kernel (termux@fakehost) (gcc version 4.9.x 20150123 (prerelease) (GCC) ) #1 SMP PREEMPT Fri Jul 10 00:00:00 UTC 2020
 	EOF
 }
 
 ## Creating /etc/resolv.conf file
 function create_resolv() {
-  task "Creating /etc/resolv.conf file"
+    task "Creating /etc/resolv.conf file"
 
-  local resolv="${ROOTFS_DIR}/etc/resolv.conf"
-  [ -f "$resolv" ] && cp -n ${resolv}{,.bak}
-  cat <<- EOF > "$resolv"
+    local resolv="${ROOTFS_DIR}/etc/resolv.conf"
+    [ -f "$resolv" ] && cp -n ${resolv}{,.bak}
+    cat <<- EOF > "$resolv"
 	nameserver 8.8.8.8
 	nameserver 8.8.4.4
 	EOF
 }
 ## Creating /etc/hosts file
 function create_hosts() {
-  task "Creating /etc/hosts file"
+    task "Creating /etc/hosts file"
 
-  local hosts="${ROOTFS_DIR}/etc/hosts"
-  [ -f "$hosts" ] && cp -n ${hosts}{,.bak}
-  cat <<- EOF > "$hosts"
+    local hosts="${ROOTFS_DIR}/etc/hosts"
+    [ -f "$hosts" ] && cp -n ${hosts}{,.bak}
+    cat <<- EOF > "$hosts"
 	# IPv4.
 	127.0.0.1   localhost.localdomain localhost
 
@@ -208,11 +208,11 @@ function create_hosts() {
 }
 ## Creating /etc/bash.bashrc file
 function create_bashrc() {
-  task "Creating /etc/bash.bashrc file"
+    task "Creating /etc/bash.bashrc file"
 
-  local bashrc="${ROOTFS_DIR}/etc/bash.bashrc"
-  [ -f "$bashrc" ] && cp -n ${bashrc}{,.bak}
-  cat <<- EOF > "$bashrc"
+    local bashrc="${ROOTFS_DIR}/etc/bash.bashrc"
+    [ -f "$bashrc" ] && cp -n ${bashrc}{,.bak}
+    cat <<- EOF > "$bashrc"
 	# text editor
 	export VISUAL=nano
 	export EDITOR="\$VISUAL"
@@ -241,14 +241,14 @@ function create_bashrc() {
 }
 ## Creating /etc/profile file
 function create_profile() {
-  task "Creating /etc/profile file"
+    task "Creating /etc/profile file"
 
-  local profile="${ROOTFS_DIR}/etc/profile"
-  [ -f "$profile" ] && cp -n ${profile}{,.bak}
+    local profile="${ROOTFS_DIR}/etc/profile"
+    [ -f "$profile" ] && cp -n ${profile}{,.bak}
 
-  local TZ=""; [ ! -z "$timezone" ] && TZ="export TZ=$timezone"
+    local TZ=""; [ ! -z "$timezone" ] && TZ="export TZ=$timezone"
 
-  cat <<- EOF > "$profile"
+    cat <<- EOF > "$profile"
 	export LANG=C.UTF-8
 	$TZ
 	export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -289,11 +289,11 @@ function create_profile() {
 
 ## Edge repositories
 function edge_repo() {
-  task "Change the repositories to edge"
+    task "Change the repositories to edge"
 
-  local repo="${ROOTFS_DIR}/etc/apk/repositories"
-  [ -f "$repo" ] && cp -n ${repo}{,.bak}
-  cat <<- EOF > "$repo"
+    local repo="${ROOTFS_DIR}/etc/apk/repositories"
+    [ -f "$repo" ] && cp -n ${repo}{,.bak}
+    cat <<- EOF > "$repo"
 	http://dl-cdn.alpinelinux.org/alpine/edge/main
 	http://dl-cdn.alpinelinux.org/alpine/edge/community
 	http://dl-cdn.alpinelinux.org/alpine/edge/testing
@@ -303,119 +303,119 @@ function edge_repo() {
 function select_repo() { ask "Enable the edge (development) repositories?" && edge_repo||:; }
 ## Updating and install some packages
 function update_at_distro() {
-  local fstab="${ROOTFS_DIR}/etc/fstab"
-  if [ -f "$fstab" ]; then
-    cp -n ${fstab}{,.bak}
-    echo "" > $fstab
-  fi
+    local fstab="${ROOTFS_DIR}/etc/fstab"
+    if [ -f "$fstab" ]; then
+        cp -n ${fstab}{,.bak}
+        echo "" > $fstab
+    fi
 
-  ## packages to install
-  local pkg="bash bash-completion sudo tzdata curl wget git openssh nano vim neofetch"
-  local up="Update, upgrade system and installed packages"
-  local ins="Installing $pkg"
+    ## packages to install
+    local pkg="bash bash-completion sudo tzdata curl wget git openssh nano vim neofetch"
+    local up="Update, upgrade system and installed packages"
+    local ins="Installing $pkg"
 
-  if ask "Disable progress bar for updating?"
-  then
-    task "$up"
-    $LAUNCH_DISTRO "apk -U upgrade --no-progress --no-cache"
-    task "$ins"
-    $LAUNCH_DISTRO "apk add --update --no-progress --no-cache $pkg"
-  else
-    task "$up"
-    $LAUNCH_DISTRO "apk -U upgrade --no-cache"
-    task "$ins"
-    $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
-  fi
-  task "Possible to repair installed packages"
-  $LAUNCH_DISTRO "apk fix -sv --no-cache"
+    if ask "Disable progress bar for updating?"
+    then
+        task "$up"
+        $LAUNCH_DISTRO "apk -U upgrade --no-progress --no-cache"
+        task "$ins"
+        $LAUNCH_DISTRO "apk add --update --no-progress --no-cache $pkg"
+    else
+        task "$up"
+        $LAUNCH_DISTRO "apk -U upgrade --no-cache"
+        task "$ins"
+        $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
+    fi
+    task "Possible to repair installed packages"
+    $LAUNCH_DISTRO "apk fix -sv --no-cache"
 
-  ## replace with bash
-  sed -i "s/ash/bash/g" ${ROOTFS_DIR}/etc/passwd
-  sed -i "s/bin\/sh/bin\/bash/g" $LAUNCH_DISTRO
+    ## replace with bash
+    sed -i "s/ash/bash/g" ${ROOTFS_DIR}/etc/passwd
+    sed -i "s/bin\/sh/bin\/bash/g" $LAUNCH_DISTRO
 }
 
 ## Installing nodejs
 function install_nodejs() {
-  local pkg="nodejs-current npm yarn"
-  task "Installing $pkg"
+    local pkg="nodejs-current npm yarn"
+    task "Installing $pkg"
 
-  $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
+    $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
 }
 ## Installing python3
 function install_python3() {
-  local pkg="python3 py3-pip py3-wheel"
-  task "Installing $pkg"
+    local pkg="python3 py3-pip py3-wheel"
+    task "Installing $pkg"
 
-  $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
+    $LAUNCH_DISTRO "apk add --update --no-cache $pkg"
 }
 
 function username_prompt {
-  read -p "Username: " username
-  local re='^([a-z][a-z0-9_]{0,30})$'
-  if [[ "$username" =~ $re ]]; then
-    username="$username"
-  else
-    echo -e "\n${YELLOW}Username not allowed.${RST}"
-    username_prompt
-  fi
+    read -p "Username: " username
+    local re='^([a-z][a-z0-9_]{0,30})$'
+    if [[ "$username" =~ $re ]]; then
+        username="$username"
+    else
+        echo -e "\n${YELLOW}Username not allowed.${RST}"
+        username_prompt
+    fi
 }
 function password_prompt {
-  read -sp "Password: " pass1
-  echo
-  read -sp "Verify password: " pass2
-  if [[ "$pass1" == "$pass2" ]]; then
-    if [ -z "$pass1" ]; then
-      echo -e "\n\n${YELLOW}Password cannot be empty.${RST}"
-      password_prompt
+    read -sp "Password: " pass1
+    echo
+    read -sp "Verify password: " pass2
+    if [[ "$pass1" == "$pass2" ]]; then
+        if [ -z "$pass1" ]; then
+            echo -e "\n\n${YELLOW}Password cannot be empty.${RST}"
+            password_prompt
+        else
+            password="$pass1"
+            echo
+        fi
     else
-      password="$pass1"
-      echo
+        echo -e "\n\n${YELLOW}Passwords do not match.${RST}"
+        password_prompt
     fi
-  else
-    echo -e "\n\n${YELLOW}Passwords do not match.${RST}"
-    password_prompt
-  fi
 }
 ## Setup a non-root user
 function setup_user() {
-  task "Setup a non-root user"
+    task "Setup a non-root user"
 
-  username_prompt
-  $LAUNCH_DISTRO "addgroup -g 1000 $username"
-  $LAUNCH_DISTRO "adduser -u 1000 -G $username -s /bin/bash -D $username"
-  $LAUNCH_DISTRO "chown -R $username:$username /home/$username"
+    username_prompt
+    $LAUNCH_DISTRO "addgroup -g 1000 $username"
+    $LAUNCH_DISTRO "adduser -u 1000 -G $username -s /bin/bash -D $username"
+    $LAUNCH_DISTRO "chown -R $username:$username /home/$username"
 
-  password_prompt
-  $LAUNCH_DISTRO "echo \"$username:$password\" | chpasswd -c SHA512 &>-"
+    password_prompt
+    $LAUNCH_DISTRO "echo \"$username:$password\" | chpasswd -c SHA512 &>-"
 
-  if ask "User running sudo without a password?"
-  then
-    $LAUNCH_DISTRO "echo -ne \"$username ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/${username} && chmod 0440 /etc/sudoers.d/${username}"
-  else
-    $LAUNCH_DISTRO "echo -ne \"$username ALL=(ALL) ALL\" > /etc/sudoers.d/${username} && chmod 0440 /etc/sudoers.d/${username}"
-  fi
-  local user_dir="/home/${username}"
-  ## copy /etc/bash.bashrc to ~/.bashrc
-  $LAUNCH_DISTRO "cp /etc/bash.bashrc ${user_dir}/.bashrc && chown -R $username:$username ${user_dir}/.bashrc"
-  ## mkdir ~/bin and ~/.local/bin
-  $LAUNCH_DISTRO "mkdir -p ${user_dir}/bin && chown -R $username:$username ${user_dir}/bin && mkdir -p ${user_dir}/.local/bin && chown -R $username:$username ${user_dir}/.local/bin"
-  unset -v username password user_dir
-  unset -f username_prompt password_prompt
+    if ask "User running sudo without a password?"
+    then
+        $LAUNCH_DISTRO "echo -ne \"$username ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/${username} && chmod 0440 /etc/sudoers.d/${username}"
+    else
+        $LAUNCH_DISTRO "echo -ne \"$username ALL=(ALL) ALL\" > /etc/sudoers.d/${username} && chmod 0440 /etc/sudoers.d/${username}"
+    fi
+    local user_dir="/home/${username}"
+    ## copy /etc/bash.bashrc to ~/.bashrc
+    $LAUNCH_DISTRO "cp /etc/bash.bashrc ${user_dir}/.bashrc && chown -R $username:$username ${user_dir}/.bashrc"
+    ## mkdir ~/bin and ~/.local/bin
+    $LAUNCH_DISTRO "mkdir -p ${user_dir}/bin && chown -R $username:$username ${user_dir}/bin && mkdir -p ${user_dir}/.local/bin && chown -R $username:$username ${user_dir}/.local/bin"
+    unset -v username password user_dir
+    unset -f username_prompt password_prompt
 }
 
 ## Set the timezone if available
 function set_timezone() {
-  #local TZ=`$LAUNCH_DISTRO "printenv TZ"`
-  [ ! -z "$timezone" ] && $LAUNCH_DISTRO "[ -e \"/usr/share/zoneinfo/$timezone\" ] && ln -snf /usr/share/zoneinfo/${timezone} /etc/localtime && echo -ne \"$timezone\" > /etc/timezone"
+    #local TZ=`$LAUNCH_DISTRO "printenv TZ"`
+    [ ! -z "$timezone" ] && $LAUNCH_DISTRO "[ -e \"/usr/share/zoneinfo/$timezone\" ] && ln -snf /usr/share/zoneinfo/${timezone} /etc/localtime && echo -ne \"$timezone\" > /etc/timezone"
 }
 ## Add a welcome message
 function add_welcome() {
-  local motd="${ROOTFS_DIR}/etc/motd"
-  if [ -f "$motd" ]; then
-    cp -n ${motd}{,.bak}
-    echo "" > $motd
-  fi
-  cat <<- EOF > "${ROOTFS_DIR}/etc/profile.d/motd.sh"
+    local motd="${ROOTFS_DIR}/etc/motd"
+    if [ -f "$motd" ]; then
+        cp -n ${motd}{,.bak}
+        echo "" > $motd
+    fi
+    cat <<- EOF > "${ROOTFS_DIR}/etc/profile.d/motd.sh"
 	echo -e "Welcome to Alpine!
 
 	Wiki:      https://wiki.alpinelinux.org
@@ -436,159 +436,159 @@ function add_welcome() {
 
 ## Install the distro after presses enter
 function installing() {
-  echo -e "${BOLD}You're going to install ${DISTRO_NAME} ${PENGUIN} ${BOLD}in Termux${RST}"
-  echo
-  echo -en "${ITALIC}${YELLOW}Press ENTER to continue.${RST} "
-  read enter
-  mkdir -p $ROOTFS_DIR
-  cd $ROOTFS_DIR
-  echo
-  echo -e "Installing $DISTRO_NAME..."
-  echo -e "${GREEN}${ROOTFS_DIR}/${RST}"
+    echo -e "${BOLD}You're going to install ${DISTRO_NAME} ${PENGUIN} ${BOLD}in Termux${RST}"
+    echo
+    echo -en "${ITALIC}${YELLOW}Press ENTER to continue.${RST} "
+    read enter
+    mkdir -p $ROOTFS_DIR
+    cd $ROOTFS_DIR
+    echo
+    echo -e "Installing $DISTRO_NAME..."
+    echo -e "${GREEN}${ROOTFS_DIR}/${RST}"
 }
 ## Install or reinstall the distro
 function evaluate() {
-  echo -e "${BLUE}${EXEC_NAME} v${PROGRAM_VERSION}${RST}"
-  if is_dir_not_empty "$ROOTFS_DIR"; then
-    danger "$DISTRO_NAME ${PENGUIN} already installed in your Termux"
-    echo -e "${GREEN}${ROOTFS_DIR}/${RST} already exists!"
-    echo
-    if ask "Do you want to reinstall?"
-    then
-      rm -rf $ROOTFS_DIR
-      [ -f "$LAUNCH_DISTRO" ] && rm -f $LAUNCH_DISTRO
-      sleep 1s
-      echo
-      installing
+    echo -e "${BLUE}${EXEC_NAME} v${PROGRAM_VERSION}${RST}"
+    if is_dir_not_empty "$ROOTFS_DIR"; then
+        danger "$DISTRO_NAME ${PENGUIN} already installed in your Termux"
+        echo -e "${GREEN}${ROOTFS_DIR}/${RST} already exists!"
+        echo
+        if ask "Do you want to reinstall?"
+        then
+            rm -rf $ROOTFS_DIR
+            [ -f "$LAUNCH_DISTRO" ] && rm -f $LAUNCH_DISTRO
+            sleep 1s
+            echo
+            installing
+        else
+            exit 0
+        fi
     else
-      exit 0
+        installing
     fi
-  else
-    installing
-  fi
 }
 ## Full wipe the rootfs installation
 function uninstall() {
-  echo -e "${BLUE}${EXEC_NAME} v${PROGRAM_VERSION}${RST}"
-  if is_dir_not_empty "$ROOTFS_DIR"; then
-    echo -e "${BOLD}You're going to uninstall ${DISTRO_NAME}!${RST}"
-    echo
-    if ask "Are you sure you want to uninstall?"
-    then
-      echo
-      echo -en "${ITALIC}${YELLOW}Press ENTER to continue.${RST} "
-      read enter
-      rm -rf $ROOTFS_DIR
-      [ -f "$LAUNCH_DISTRO" ] && rm -f $LAUNCH_DISTRO
-      sleep 1s
-      echo
-      die "Uninstalled!"
+    echo -e "${BLUE}${EXEC_NAME} v${PROGRAM_VERSION}${RST}"
+    if is_dir_not_empty "$ROOTFS_DIR"; then
+        echo -e "${BOLD}You're going to uninstall ${DISTRO_NAME}!${RST}"
+        echo
+        if ask "Are you sure you want to uninstall?"
+        then
+            echo
+            echo -en "${ITALIC}${YELLOW}Press ENTER to continue.${RST} "
+            read enter
+            rm -rf $ROOTFS_DIR
+            [ -f "$LAUNCH_DISTRO" ] && rm -f $LAUNCH_DISTRO
+            sleep 1s
+            echo
+            die "Uninstalled!"
+        else
+            exit 0
+        fi
     else
-      exit 0
+        die "Not installed!"
     fi
-  else
-    die "Not installed!"
-  fi
 }
 
 ## Completed message after installation finished
 function completed()
 {
-  echo -e "${BOLD}${YAY} Installation finished!${RST}"
-  echo
-  echo -e "${ROCKET} Start $DISTRO_NAME with the command ${GREEN}${EXEC_NAME}${RST}"
-  echo
-  echo -e "Location: ${GREEN}${ROOTFS_DIR}/${RST}"
-  echo -e "Default shell: ${GREEN}/bin/bash${RST}"
-  echo
-  echo -e "Tips after installing:"
-  echo -e "${GREEN}${PROGRAM_NAME} --uninstall${RST} to uninstall"
-  echo -e "${GREEN}${PROGRAM_NAME} --help${RST} for more"
-  echo
-  echo -e "Made with ${COFFEE} by illvart"
-  echo "https://github.com/illvart/termux-alpine"
+    echo -e "${BOLD}${YAY} Installation finished!${RST}"
+    echo
+    echo -e "${ROCKET} Start $DISTRO_NAME with the command ${GREEN}${EXEC_NAME}${RST}"
+    echo
+    echo -e "Location: ${GREEN}${ROOTFS_DIR}/${RST}"
+    echo -e "Default shell: ${GREEN}/bin/bash${RST}"
+    echo
+    echo -e "Tips after installing:"
+    echo -e "${GREEN}${PROGRAM_NAME} --uninstall${RST} to uninstall"
+    echo -e "${GREEN}${PROGRAM_NAME} --help${RST} for more"
+    echo
+    echo -e "Made with ${COFFEE} by illvart"
+    echo "https://github.com/illvart/termux-alpine"
 }
 
 ## Show help information
 function help()
 {
-  echo
-  echo -e "Usage: ${GREEN}${PROGRAM_NAME}${RST} [options]"
-  echo
-  echo "Options:"
-  echo -e "--install-nodejs	install nodejs-current, npm, and yarn"
-  echo -e "--install-python3	install python3 py3-pip, and py3-wheel"
-  echo -e "-S, --setup-user	setup a non-root user"
-  echo -e "-F, --fake-kernel	use a fake kernel"
-  echo -e "-u, --uninstall		full wipe the rootfs installation"
-  echo -e "-v, --version		show this program version"
-  echo -e "-h, --help		show this help information"
-  echo
+    echo
+    echo -e "Usage: ${GREEN}${PROGRAM_NAME}${RST} [options]"
+    echo
+    echo "Options:"
+    echo -e "--install-nodejs	install nodejs-current, npm, and yarn"
+    echo -e "--install-python3	install python3 py3-pip, and py3-wheel"
+    echo -e "-S, --setup-user	setup a non-root user"
+    echo -e "-F, --fake-kernel	use a fake kernel"
+    echo -e "-u, --uninstall		full wipe the rootfs installation"
+    echo -e "-v, --version		show this program version"
+    echo -e "-h, --help		show this help information"
+    echo
 }
 
 declare opt_other="" opt_help="" opt_version="" opt_uninstall="" opt_setup_user="" opt_fake_kernel="" opt_install_nodejs="" opt_install_python3=""
 
 for opts in "$@"; do
-  case $opts in
-    -h|--help) opt_help=true; shift ;;
-    -v|--version) opt_version=true; shift ;;
-    -u|--uninstall) opt_uninstall=true; shift ;;
-    -S|--setup-user) opt_setup_user=true; shift ;;
-    -F|--fake-kernel) opt_fake_kernel=true; shift ;;
-    --install-nodejs) opt_install_nodejs=true; shift ;;
-    --install-python3) opt_install_python3=true; shift ;;
-    *) opt_other=("$1") ;;
-  esac
+    case $opts in
+        -h|--help) opt_help=true; shift ;;
+        -v|--version) opt_version=true; shift ;;
+        -u|--uninstall) opt_uninstall=true; shift ;;
+        -S|--setup-user) opt_setup_user=true; shift ;;
+        -F|--fake-kernel) opt_fake_kernel=true; shift ;;
+        --install-nodejs) opt_install_nodejs=true; shift ;;
+        --install-python3) opt_install_python3=true; shift ;;
+        *) opt_other=("$1") ;;
+    esac
 done
 
 if [ "$opt_other" ]; then
-  echo
-  echo -e "${RED}Unknown options${RST} ${opt_other}"
-  echo
-  echo -e "Run ${GREEN}${PROGRAM_NAME} --help${RST} to see available options."
-  echo
-  exit 1
+    echo
+    echo -e "${RED}Unknown options${RST} ${opt_other}"
+    echo
+    echo -e "Run ${GREEN}${PROGRAM_NAME} --help${RST} to see available options."
+    echo
+    exit 1
 elif [ "$opt_help" ]; then
-  help
-  exit 0
+    help
+    exit 0
 elif [ "$opt_version" ]; then
-  echo $PROGRAM_VERSION
-  exit 0
+    echo $PROGRAM_VERSION
+    exit 0
 elif [ "$opt_uninstall" ]; then
-  uninstall
+    uninstall
 else
-  evaluate
-  divider
-  check_architecture
-  check_required_tools
-  get_rootfs
-  get_sha_rootfs
-  check_integrity_rootfs
-  #(decompress_rootfs) & spinner "Decompressing..."
-  decompress_rootfs
-  create_launch_script "$opt_fake_kernel"
-  divider
-  task "Login to $DISTRO_NAME and configuring..."
-  if [ "$opt_fake_kernel" ]; then
-    create_proc_stat
-    create_proc_version
-  fi
-  create_resolv
-  create_hosts
-  create_bashrc
-  create_profile
-  select_repo
-  task "Updating $DISTRO_NAME and install some packages..."
-  divider
-  update_at_distro
-  [ "$opt_install_nodejs" ] && install_nodejs
-  [ "$opt_install_python3" ] && install_python3
-  [ "$opt_setup_user" ] && setup_user
-  set_timezone
-  add_welcome
-  divider
-  completed
-  divider
+    evaluate
+    divider
+    check_architecture
+    check_required_tools
+    get_rootfs
+    get_sha_rootfs
+    check_integrity_rootfs
+    #(decompress_rootfs) & spinner "Decompressing..."
+    decompress_rootfs
+    create_launch_script "$opt_fake_kernel"
+    divider
+    task "Login to $DISTRO_NAME and configuring..."
+    if [ "$opt_fake_kernel" ]; then
+        create_proc_stat
+        create_proc_version
+    fi
+    create_resolv
+    create_hosts
+    create_bashrc
+    create_profile
+    select_repo
+    task "Updating $DISTRO_NAME and install some packages..."
+    divider
+    update_at_distro
+    [ "$opt_install_nodejs" ] && install_nodejs
+    [ "$opt_install_python3" ] && install_python3
+    [ "$opt_setup_user" ] && setup_user
+    set_timezone
+    add_welcome
+    divider
+    completed
+    divider
 fi
 
 exit 0
