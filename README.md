@@ -33,7 +33,7 @@ pkg install -y ncurses-utils
 
 ```bash
 cd $HOME \
-    && git clone -b master git@github.com:illvart/termux-alpine.git \
+    && git clone -b master https://github.com/illvart/termux-alpine.git \
     && cd termux-alpine \
     && chmod +x setup-termux-alpine
 ```
@@ -97,7 +97,7 @@ Upgrade the installation script.
 ```bash
 rm -rf ${HOME}/termux-alpine \
     && cd $HOME \
-    && git clone -b master git@github.com:illvart/termux-alpine.git \
+    && git clone -b master https://github.com/illvart/termux-alpine.git \
     && cd termux-alpine
 ```
 
