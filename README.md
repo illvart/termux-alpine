@@ -27,21 +27,25 @@ Open [Termux](https://termux.com/) app, copy and paste the following command in 
 Note: Required to install `git` and `ncurses-utils`, skip if already installed!
 
 ```bash
-pkg install -y git ncurses-utils
+pkg install -y git
+pkg install -y ncurses-utils
 ```
 
 ```bash
 cd $HOME \
-    && git clone https://github.com/illvart/termux-alpine.git \
-    && cd termux-alpine
+    && git clone -b master https://github.com/illvart/termux-alpine.git \
+    && cd termux-alpine \
+    && chmod +x setup-termux-alpine
 ```
+
+Or download from [GitHub Releases page](https://github.com/illvart/termux-alpine/releases) and extract.
 
 ### Installation
 
 Installation [options](#options).
 
 ```bash
-bash setup-termux-alpine.sh --setup-user
+./setup-termux-alpine --setup-user
 ```
 
 Please follow the output of the command above!
@@ -67,7 +71,7 @@ To reinstall just typing a command like [installation](#installation) above, typ
 Or pass the command with [options](#options) example:
 
 ```bash
-bash setup-termux-alpine.sh -S -F
+./setup-termux-alpine -S -F
 ```
 
 ### Uninstall
@@ -76,14 +80,14 @@ Please note! Before uninstalling, recommended to backup the current installation
 
 ```bash
 cd ${HOME}/termux-alpine \
-    && bash setup-termux-alpine.sh --uninstall
+    && ./setup-termux-alpine --uninstall
 ```
 
 Or manually (isn't safe):
 
 ```bash
 rm -rf ${PREFIX}/bin/termux-alpine \
-    ${HOME}/alpine
+    ${HOME}/.alpine
 ```
 
 ## Upgrade
@@ -93,17 +97,18 @@ Upgrade the installation script.
 ```bash
 rm -rf ${HOME}/termux-alpine \
     && cd $HOME \
-    && git clone https://github.com/illvart/termux-alpine.git \
+    && git clone -b master https://github.com/illvart/termux-alpine.git \
     && cd termux-alpine
 ```
 
 ### Options
 
 ```bash
-Usage: bash setup-termux-alpine.sh [options]
+Usage: ./setup-termux-alpine [options]
 
 Options:
 --install-nodejs	install nodejs-current, npm, and yarn
+--install-python3	install python3 py3-pip, and py3-wheel
 -S, --setup-user	setup a non-root user
 -F, --fake-kernel	use a fake kernel
 -u, --uninstall		full wipe the rootfs installation
