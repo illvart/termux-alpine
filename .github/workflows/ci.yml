@@ -19,16 +19,8 @@ jobs:
       - name: Run beautysh
         uses: illvart/beautysh-action@v1.0.0
         with:
-          args: 'setup-termux-alpine utils.sh --indent-size 4'
-          
-      - name: Cache python pip
-        uses: actions/cache@v2
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-          
+          args: 'setup-termux-alpine utils.sh --indent-size 2'
+
       - name: Commit changes
         uses: EndBug/add-and-commit@v5
         with:
