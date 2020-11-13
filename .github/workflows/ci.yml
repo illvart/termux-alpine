@@ -19,7 +19,7 @@ jobs:
       - name: Run beautysh
         uses: illvart/beautysh-action@v1.0.0
         with:
-          args: 'setup-termux-alpine utils.sh --indent-size 2'
+          args: 'setup-termux-alpine utils.sh --indent-size 4'
 
       - name: Commit changes
         uses: EndBug/add-and-commit@v5
