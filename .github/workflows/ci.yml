@@ -6,17 +6,22 @@ on:
     branches:
       - master
       - dev
-
+      
 jobs:
   beautify:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        
+        with:
+          ref: '${{ github.head_ref }}'
+          
       - name: Run beautysh
         uses: illvart/beautysh-action@v1.0.0
         with:
-          args: 'setup-termux-alpine utils.sh --indent-size 2'
+          args: setup-termux-alpine utils.sh --indent-size 2
           
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v4.7.2
+        with:
+          commit_message: Apply beautysh changes
