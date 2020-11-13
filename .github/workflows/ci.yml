@@ -1,0 +1,22 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - dev
+
+jobs:
+  beautify:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        
+      - name: Run beautysh
+        uses: illvart/beautysh-action@latest
+        with:
+          args: 'setup-termux-alpine utils.sh --indent-size 4'
+          
