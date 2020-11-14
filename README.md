@@ -1,7 +1,7 @@
 # termux-alpine
 
 [![Release](https://img.shields.io/github/v/release/illvart/termux-alpine?color=orange)](https://github.com/illvart/termux-alpine/releases)
-[![License](https://img.shields.io/github/license/illvart/termux-alpine.svg)](https://github.com/illvart/termux-alpine/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/illvart/termux-alpine.svg)](https://github.com/illvart/termux-alpine/blob/master/LICENSE)
 ![Continuous Integration](https://github.com/illvart/termux-alpine/workflows/Continuous%20Integration/badge.svg)
 
 > Bash script for installing **Alpine Linux** in **Termux**
@@ -128,4 +128,4 @@ Credit to `Hax4us` and `Termux` for source.
 
 ## License
 
-Licensed under [MIT](./LICENSE).
+Licensed under [GPL-3.0](./LICENSE).
