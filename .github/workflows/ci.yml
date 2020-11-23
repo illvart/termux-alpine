@@ -1,29 +1,32 @@
-name: Continuous Integration
+name: CI
 
 on:
   pull_request:
   push:
     branches:
-      - master
+      - main
       - dev
       
 jobs:
   beautify:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
         with:
           ref: ${{ github.head_ref }}
           
       - name: Run beautysh
-        uses: illvart/beautysh-action@v1.0.0
+        uses: illvart/beautysh-action@latest
         with:
           args: 'setup-termux-alpine utils.sh --indent-size 4'
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
+          commit_user_name: illvart
+          commit_user_email: illvart@protonmail.com
+          commit_author: illvart <illvart@protonmail.com>
           commit_message: '[auto] ci: apply beautysh changes'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

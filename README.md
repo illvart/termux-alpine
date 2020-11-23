@@ -1,18 +1,21 @@
-# termux-alpine
+# `termux-alpine`
 
-[![Release](https://img.shields.io/github/v/release/illvart/termux-alpine?color=orange)](https://github.com/illvart/termux-alpine/releases)
-[![License](https://img.shields.io/github/license/illvart/termux-alpine?color=blue)](https://github.com/illvart/termux-alpine/blob/master/LICENSE)
-![Continuous Integration](https://github.com/illvart/termux-alpine/workflows/Continuous%20Integration/badge.svg)
+[![Release](https://img.shields.io/github/v/release/illvart/termux-alpine?color=orange)][1]
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-blue.svg)][2]
+[![CI Status](https://github.com/illvart/termux-alpine/workflows/CI/badge.svg)](https://github.com/illvart/termux-alpine/actions)
 
-> Bash script for installing **Alpine Linux** in **Termux**
+> Bash script for installing **Alpine Linux** in [Termux].
 
 <p align="center">
-  <img src="https://github.com/illvart/termux-alpine/blob/master/ss.png?raw=true" alt="Alpine Linux Termux"/>
+  <img src="https://github.com/illvart/termux-alpine/blob/main/ss.png?raw=true" alt="Alpine Linux Termux"/>
   <br>
   <em>Check out the other screenshots on my <a href="https://www.instagram.com/p/CEr87gMHUOX/?igshid=15x831l2so1m8">Instagram</a>.</em>
 </p>
 
 ## Table of Contents
+
+<details>
+<summary>Details</summary>
 
 - [Initializing](#initializing)
   - [Installation](#installation)
@@ -24,9 +27,11 @@
 - [Credits](#credits)
 - [License](#license)
 
+</details>
+
 ## Initializing
 
-Open [Termux](https://termux.com/) app, copy and paste the following command in Termux.
+Open [Termux] app, copy and paste the following command in Termux.
 
 Note: Required to install `git` and `ncurses-utils`, skip if already installed!
 
@@ -36,13 +41,13 @@ pkg install -y ncurses-utils
 ```
 
 ```bash
-cd $HOME \
-    && git clone -b master https://github.com/illvart/termux-alpine.git \
-    && cd termux-alpine \
-    && chmod +x setup-termux-alpine
+cd $HOME && \
+    git clone -b main https://github.com/illvart/termux-alpine.git && \
+    cd termux-alpine && \
+    chmod +x setup-termux-alpine
 ```
 
-Or download from [GitHub Releases page](https://github.com/illvart/termux-alpine/releases) and extract.
+Or download from [GitHub Releases page][1] and extract.
 
 ### Installation
 
@@ -83,8 +88,8 @@ Or pass the command with [options](#options) example:
 Please note! Before uninstalling, recommended to backup the current installation.
 
 ```bash
-cd ${HOME}/termux-alpine \
-    && ./setup-termux-alpine --uninstall
+cd ${HOME}/termux-alpine && \
+    ./setup-termux-alpine --uninstall
 ```
 
 Or manually (isn't safe):
@@ -99,10 +104,10 @@ rm -rf ${PREFIX}/bin/termux-alpine \
 Upgrade the installation script.
 
 ```bash
-rm -rf ${HOME}/termux-alpine \
-    && cd $HOME \
-    && git clone -b master https://github.com/illvart/termux-alpine.git \
-    && cd termux-alpine
+rm -rf ${HOME}/termux-alpine && \
+    cd $HOME && \
+    git clone -b main https://github.com/illvart/termux-alpine.git && \
+    cd termux-alpine
 ```
 
 ### Options
@@ -128,4 +133,8 @@ Credit to `Hax4us` and `Termux` for source.
 
 ## License
 
-Licensed under [GPL-3.0](./LICENSE).
+Licensed under [GPL-3.0][2].
+
+[1]: https://github.com/illvart/termux-alpine/releases
+[2]: https://github.com/illvart/termux-alpine/blob/main/LICENSE
+[Termux]: https://termux.com
