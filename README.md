@@ -24,6 +24,7 @@
   - [Uninstall](#uninstall)
 - [Upgrade](#upgrade)
 - [Options](#options)
+- [Supports](#sparkling_heart-supports)
 - [Credits](#credits)
 - [License](#license)
 
@@ -35,12 +36,12 @@ Open [Termux] app, copy and paste the following command in Termux.
 
 Note: Required to install `git` and `ncurses-utils`, skip if already installed!
 
-```bash
+```sh
 pkg install -y git
 pkg install -y ncurses-utils
 ```
 
-```bash
+```sh
 cd $HOME && \
     git clone -b main https://github.com/illvart/termux-alpine.git && \
     cd termux-alpine && \
@@ -53,7 +54,7 @@ Or download from [GitHub Releases page][1] and extract.
 
 Installation [options](#options).
 
-```bash
+```sh
 ./setup-termux-alpine --setup-user
 ```
 
@@ -63,13 +64,13 @@ Please follow the output of the command above!
 
 Just typing a command like below in Termux and enter.
 
-```bash
+```sh
 termux-alpine
 ```
 
 You can also running any commands inside Alpine Linux:
 
-```bash
+```sh
 termux-alpine echo "Hello World"
 ```
 
@@ -79,7 +80,7 @@ To reinstall just typing a command like [installation](#installation) above, typ
 
 Or pass the command with [options](#options) example:
 
-```bash
+```sh
 ./setup-termux-alpine -S -F
 ```
 
@@ -87,14 +88,14 @@ Or pass the command with [options](#options) example:
 
 Please note! Before uninstalling, recommended to backup the current installation.
 
-```bash
+```sh
 cd ${HOME}/termux-alpine && \
     ./setup-termux-alpine --uninstall
 ```
 
 Or manually (isn't safe):
 
-```bash
+```sh
 rm -rf ${PREFIX}/bin/termux-alpine \
     ${HOME}/.alpine
 ```
@@ -103,16 +104,16 @@ rm -rf ${PREFIX}/bin/termux-alpine \
 
 Upgrade the installation script.
 
-```bash
+```sh
 rm -rf ${HOME}/termux-alpine && \
     cd $HOME && \
     git clone -b main https://github.com/illvart/termux-alpine.git && \
     cd termux-alpine
 ```
 
-### Options
+## Options
 
-```bash
+```sh
 Usage: ./setup-termux-alpine [options]
 
 Options:
@@ -127,14 +128,29 @@ Options:
 
 If you're using `--setup-user`, to login a non-root user after installation use `login your_username` and enter the password.
 
+## :sparkling_heart: Supports
+
+This project is open source and free to use under the [license](#license). However, if you are using this project and happy with it or just want to encourage me to continue creating stuff, there are few ways to supporting:
+
+- [PayPal]
+- [Patreon]
+- [BuyMeACoffee]
+- [Saweria]
+
 ## Credits
 
-Credit to `Hax4us` and `Termux` for source.
+Credit to [Hax4us](https://github.com/Hax4us) and [termux](https://github.com/termux) for source.
 
 ## License
 
-Licensed under [GPL-3.0][2].
+This project is licensed under the **GPL-3.0 License**. See the [LICENSE][1] file for details.
+
 
 [1]: https://github.com/illvart/termux-alpine/releases
 [2]: https://github.com/illvart/termux-alpine/blob/main/LICENSE
 [Termux]: https://termux.com
+[Patreon]: https://patreon.com/illvart
+[PayPal]: https://www.paypal.me/illvart
+[BuyMeACoffee]: https://www.buymeacoffee.com/illvart
+[Saweria]: https://saweria.co/illvart
+
