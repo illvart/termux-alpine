@@ -143,7 +143,7 @@ Credit to [Hax4us](https://github.com/Hax4us) and [termux](https://github.com/te
 
 ## License
 
-This project is licensed under the **GPL-3.0 License**. See the [LICENSE][1] file for details.
+This project is licensed under the **GPL-3.0 License**. See the [LICENSE][2] file for details.
 
 
 [1]: https://github.com/illvart/termux-alpine/releases
