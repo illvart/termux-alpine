@@ -3,13 +3,13 @@
 ## Copyright (c) 2020 illvart
 ## https://github.com/illvart/termux-alpine
 ##
-## Licensed under GPL-3.0 https://github.com/illvart/termux-alpine/blob/master/LICENSE
+## Licensed under GPL-3.0 https://github.com/illvart/termux-alpine/blob/main/LICENSE
 ##
 set -Eeuo pipefail
 source "utils.sh"
 
 PROGRAM_NAME="$0"
-PROGRAM_VERSION="1.0.4"
+PROGRAM_VERSION="1.0.5"
 
 ## Executable distro name
 EXEC_NAME="termux-alpine"
@@ -224,8 +224,9 @@ function create_bashrc() {
 	alias e='exit'
 	alias c='clear'
 	alias r='reset'
-	alias la='ls -A' # show hidden files
-	alias l.='ls -d .*' # show only hidden files
+	alias la='ls -A' # show hidden
+	alias l.='ls -d .*' # show only hidden
+	alias ll='ls -CF' # show hidden prefix
 	alias l='ls -lathF' # sort by newest
 	alias L='ls -latrhF' # sort by oldest
 	alias lc='ls -lcr' # sort by change time
@@ -422,11 +423,12 @@ function add_welcome() {
 	Community: https://alpinelinux.org/community
 
 	Working with packages:
-	* Search packages:   apk search <query>
-	* Install a package: apk add <package>
-	* Remove a package:  apk del <package>
-	* Update database:   apk update
-	* Upgrade packages:  apk upgrade
+	* Search packages:    apk search <query>
+	* Install a package:  apk add <package>
+	* Remove a package:   apk del <package>
+	* Update database:    apk update
+	* Upgrade packages:   apk upgrade
+	* Installed packages: apk list --installed
 
 	Use apk --help --verbose for a full command listing.
 

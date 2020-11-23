@@ -3,7 +3,7 @@
 ## Copyright (c) 2020 illvart
 ## https://github.com/illvart/termux-alpine
 ##
-## Licensed under GPL-3.0 https://github.com/illvart/termux-alpine/blob/master/LICENSE
+## Licensed under GPL-3.0 https://github.com/illvart/termux-alpine/blob/main/LICENSE
 ##
 set -Eeuo pipefail
 
