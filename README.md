@@ -26,6 +26,7 @@
 - [Options](#options)
 - [Supports](#sparkling_heart-supports)
 - [Credits](#credits)
+- [Contributing](#contributing)
 - [License](#license)
 
 </details>
@@ -133,7 +134,6 @@ If you're using `--setup-user`, to login a non-root user after installation use 
 This project is open source and free to use under the [license](#license). However, if you are using this project and happy with it or just want to encourage me to continue creating stuff, there are few ways to supporting:
 
 - [PayPal]
-- [Patreon]
 - [BuyMeACoffee]
 - [Saweria]
 
@@ -141,15 +141,19 @@ This project is open source and free to use under the [license](#license). Howev
 
 Credit to [Hax4us](https://github.com/Hax4us) and [termux](https://github.com/termux) for source.
 
+## Contributing
+
+If you would like to help out with some code, check the [details][2].
+
 ## License
 
-This project is licensed under the **GPL-3.0 License**. See the [LICENSE][2] file for details.
+This project is licensed under the **GPL-3.0 License**. See the [LICENSE][3] file for details.
 
 
 [1]: https://github.com/illvart/termux-alpine/releases
-[2]: https://github.com/illvart/termux-alpine/blob/main/LICENSE
+[2]: https://github.com/illvart/termux-alpine/blob/main/docs/CONTRIBUTING.md
+[3]: https://github.com/illvart/termux-alpine/blob/main/LICENSE
 [Termux]: https://termux.com
-[Patreon]: https://patreon.com/illvart
 [PayPal]: https://www.paypal.me/illvart
 [BuyMeACoffee]: https://www.buymeacoffee.com/illvart
 [Saweria]: https://saweria.co/illvart
