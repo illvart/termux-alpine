@@ -1,0 +1,18 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  beautify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: illvart/beautysh-action@latest
+        with:
+          args: 'setup-termux-alpine utils.sh --indent-size 4'
+      - uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: 'ci: apply auto-fixes'
+          commit_options: '--no-verify'
+          commit_user_name: ${{ github.repository_owner }}
+          commit_user_email: ${{ github.repository_owner }}@users.noreply.github.com
