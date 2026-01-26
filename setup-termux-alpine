@@ -308,7 +308,7 @@ function create_profile() {
 ## Edge repositories
 function enable_edge_repo() {
     task "Changing repositories to edge (development branch)"
-    
+
     local repo="${ROOTFS_DIR}/etc/apk/repositories"
     [ -f "$repo" ] && cp -n ${repo}{,.bak}
     cat <<- EOF > "$repo"
