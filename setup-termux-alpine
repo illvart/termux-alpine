@@ -35,11 +35,12 @@ trap "TRAP_SIGNAL $? $LINENO" HUP INT TERM
 ## Checking the architecture for URL paths
 function check_architecture() {
     task "Checking architecture..."
-    case `dpkg --print-architecture 2>/dev/null || uname -m` in
-        aarch64|arm64) ARCH=aarch64 ;;
-        arm*) ARCH=armhf ;;
-        amd64|x86_64) ARCH=x86_64 ;;
-        i*86|x86) ARCH=x86 ;;
+    case "$(uname -m)" in
+        aarch64) ARCH=aarch64 ;;
+        armv7l|armv8l) ARCH=armv7 ;;
+        armv6l) ARCH=armhf ;;
+        x86_64) ARCH=x86_64 ;;
+        i*86) ARCH=x86 ;;
         *) die "Unsupported architecture: $(uname -m)" ;;
     esac
     task "Detected architecture: $GREEN${ARCH}$RST"
